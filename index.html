@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SME Flexible Loan Calculator</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background-color: #f8f9fa; font-family: 'Inter', sans-serif; }
+        .config-card { border-radius: 15px; border: none; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .summary-box { background: #fff; border-radius: 12px; padding: 20px; text-align: center; border-bottom: 4px solid #0d6efd; box-shadow: 0 2px 8px rgba(0,0,0,0.05); height: 100%; display: flex; flex-direction: column; justify-content: center; }
+        .table-responsive { max-height: 500px; border-radius: 10px; }
+        .badge-grace { background-color: #e3f2fd; color: #0d6efd; border: 1px solid #0d6efd; }
+        
+        /* Custom scrollbar for table */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #a8a8a8; }
+
+        /* Mobile Optimizations */
+        @media (max-width: 768px) {
+            .container { padding-top: 1rem !important; padding-bottom: 2rem !important; }
+            h2 { font-size: 1.5rem; }
+            .card.config-card { padding: 1.25rem !important; }
+            .summary-box { padding: 12px; }
+            .summary-box .h4 { font-size: 1.1rem; }
+            .summary-box small { font-size: 0.7rem !important; }
+            
+            /* Compact table for mobile */
+            .table td, .table th { 
+                padding: 0.4rem; 
+                font-size: 0.8rem; 
+                white-space: nowrap;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container py-3 py-lg-5">
+    <div class="row mb-3 mb-lg-4">
+        <div class="col-12 text-center">
+            <h2 class="fw-bold text-primary">Advanced SME Loan Planner</h2>
+            <p class="text-muted small d-lg-block d-none">Fully customizable interest, grace periods, and payment capitalization.</p>
+        </div>
+    </div>
+
+    <div class="row g-3 g-lg-4">
+        <!-- Configuration Panel -->
+        <div class="col-lg-4">
+            <div class="card config-card p-3 p-lg-4">
+                <h5 class="mb-3 mb-lg-4 text-secondary">Loan Parameters</h5>
+                
+                <div class="mb-3">
+                    <label class="form-label small fw-bold text-uppercase text-secondary">Loan Amount (LKR)</label>
+                    <input type="number" id="principal" class="form-control form-control-lg" value="1000000" inputmode="numeric">
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label small fw-bold text-uppercase text-secondary">Annual Interest Rate (%)</label>
+                    <input type="number" id="rate" class="form-control form-control-lg" value="18" step="0.1" inputmode="decimal">
+                </div>
+
+                <div class="row">
+                    <div class="col-6 mb-3">
+                        <label class="form-label small fw-bold text-uppercase text-secondary">Total (Years)</label>
+                        <input type="number" id="years" class="form-control" value="5" inputmode="numeric">
+                    </div>
+                    <div class="col-6 mb-3">
+                        <label class="form-label small fw-bold text-uppercase text-secondary">Grace (Months)</label>
+                        <input type="number" id="grace" class="form-control" value="12" inputmode="numeric">
+                    </div>
+                </div>
+
+                <div class="mb-4 bg-light p-3 rounded">
+                    <label class="form-label small fw-bold text-uppercase text-secondary">Grace Period Type</label>
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="payInterestDuringGrace" checked>
+                        <label class="form-check-label fw-bold" for="payInterestDuringGrace">Pay Interest Only</label>
+                    </div>
+                    <small class="text-muted d-block mt-2" style="line-height: 1.2; font-size: 0.85rem;">
+                        <strong>On:</strong> Pay interest monthly.<br>
+                        <strong>Off:</strong> Interest capitalizes.
+                    </small>
+                </div>
+
+                <button onclick="calculate()" class="btn btn-primary w-100 fw-bold py-3 shadow-sm">Generate Schedule</button>
+            </div>
+        </div>
+
+        <!-- Results Panel -->
+        <div class="col-lg-8">
+            <div id="resultsContent" style="display:none;">
+                <!-- Summary Boxes -->
+                <div class="row g-2 g-lg-3 mb-3 mb-lg-4">
+                    <!-- Mobile: 2 cols per row -->
+                    <div class="col-6 col-md-4">
+                        <div class="summary-box">
+                            <small class="text-muted d-block text-uppercase fw-bold mb-1">Grace Payment</small>
+                            <span class="h4 fw-bold" id="labelGrace">0</span>
+                            <small class="d-block text-muted mt-1" style="font-size: 0.75rem;">(Per Month)</small>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md-4">
+                        <div class="summary-box" style="border-bottom-color: #198754;">
+                            <small class="text-muted d-block text-uppercase fw-bold mb-1">Std. Installment</small>
+                            <span class="h4 fw-bold text-success" id="labelStandard">0</span>
+                            <small class="d-block text-muted mt-1" style="font-size: 0.75rem;">(Post-Grace)</small>
+                        </div>
+                    </div>
+                    <!-- Mobile: Full width for Total -->
+                    <div class="col-12 col-md-4">
+                        <div class="summary-box" style="border-bottom-color: #dc3545;">
+                            <small class="text-muted d-block text-uppercase fw-bold mb-1">Total Cost</small>
+                            <span class="h4 fw-bold text-danger" id="labelTotal">0</span>
+                            <small class="d-block text-muted mt-1" style="font-size: 0.75rem;">(Principal + Interest)</small>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Schedule Table -->
+                <div class="card config-card overflow-hidden">
+                    <div class="card-header bg-white border-bottom py-3">
+                        <h6 class="m-0 fw-bold text-primary">Repayment Schedule</h6>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover align-middle mb-0">
+                            <thead class="table-light sticky-top">
+                                <tr>
+                                    <th>#</th>
+                                    <th>Type</th>
+                                    <th>Payment</th>
+                                    <th>Interest</th>
+                                    <th>Principal</th>
+                                    <th>Balance</th>
+                                </tr>
+                            </thead>
+                            <tbody id="scheduleTable"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Empty State -->
+            <div id="emptyState" class="text-center py-5 text-muted">
+                <p>Adjust parameters and click <strong>Generate Schedule</strong>.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function calculate() {
+    // 1. Get Values
+    const P_initial = parseFloat(document.getElementById('principal').value);
+    const annualRate = parseFloat(document.getElementById('rate').value) / 100;
+    const totalYears = parseInt(document.getElementById('years').value);
+    const graceMonths = parseInt(document.getElementById('grace').value);
+    const payInterestOnly = document.getElementById('payInterestDuringGrace').checked;
+
+    // 2. Setup Variables
+    const monthlyRate = annualRate / 12;
+    const totalMonths = totalYears * 12;
+    const repaymentMonths = totalMonths - graceMonths;
+
+    let currentBalance = P_initial;
+    let schedule = [];
+    let totalPaid = 0;
+
+    // --- Phase 1: Grace Period ---
+    for (let m = 1; m <= graceMonths; m++) {
+        let interestDue = currentBalance * monthlyRate;
+        let payment = payInterestOnly ? interestDue : 0;
+        
+        if (!payInterestOnly) {
+            // Capitalization: Interest is added to balance
+            currentBalance += interestDue;
+        }
+
+        totalPaid += payment;
+        schedule.push({ 
+            month: m, 
+            status: 'Grace', 
+            pay: payment, 
+            interest: interestDue,
+            principal: payInterestOnly ? 0 : -interestDue, // Visual indicator
+            bal: currentBalance 
+        });
+    }
+
+    // --- Phase 2: Repayment (Amortization) ---
+    // Formula: A = P * (r(1+r)^n) / ((1+r)^n - 1)
+    let standardInstallment = 0;
+    
+    if (repaymentMonths > 0) {
+        if (monthlyRate === 0) {
+            standardInstallment = currentBalance / repaymentMonths;
+        } else {
+            const x = Math.pow(1 + monthlyRate, repaymentMonths);
+            standardInstallment = currentBalance * (monthlyRate * x) / (x - 1);
+        }
+    }
+
+    for (let m = graceMonths + 1; m <= totalMonths; m++) {
+        let interestDue = currentBalance * monthlyRate;
+        
+        // Ensure we don't overpay on the very last month due to rounding
+        let payment = standardInstallment;
+        let principalPaid = payment - interestDue;
+
+        // If it's the last month, adjust slightly to hit exactly 0 if needed
+        if (m === totalMonths) {
+            // Check for minor rounding errors at the end
+             if (currentBalance - principalPaid < 0.1) {
+                 // Close enough
+             }
+        }
+
+        currentBalance -= principalPaid;
+        
+        // Safety clamp
+        if (currentBalance < 0) currentBalance = 0;
+
+        totalPaid += payment;
+        
+        schedule.push({ 
+            month: m, 
+            status: 'Repay', 
+            pay: payment, 
+            interest: interestDue,
+            principal: principalPaid,
+            bal: currentBalance 
+        });
+    }
+
+    // --- Phase 3: Update UI ---
+    document.getElementById('resultsContent').style.display = 'block';
+    document.getElementById('emptyState').style.display = 'none';
+
+    // Update Summary Boxes
+    const formatter = new Intl.NumberFormat('en-LK', { style: 'decimal', maximumFractionDigits: 0 });
+    
+    // Find first grace payment or default to 0
+    const graceEntry = schedule.find(s => s.status === 'Grace');
+    const gracePayVal = graceEntry ? graceEntry.pay : 0;
+
+    document.getElementById('labelGrace').innerText = formatter.format(gracePayVal);
+    document.getElementById('labelStandard').innerText = formatter.format(standardInstallment);
+    document.getElementById('labelTotal').innerText = formatter.format(totalPaid);
+
+    // Render Table
+    const tbody = document.getElementById('scheduleTable');
+    tbody.innerHTML = schedule.map(row => `
+        <tr>
+            <td>${row.month}</td>
+            <td><span class="badge ${row.status === 'Grace' ? 'badge-grace' : 'bg-success'}">${row.status === 'Grace' ? 'G' : 'R'}</span></td>
+            <td class="fw-bold text-dark">${formatter.format(row.pay)}</td>
+            <td class="text-danger small">${formatter.format(row.interest)}</td>
+            <td class="text-primary small d-none d-sm-table-cell">${formatter.format(row.principal)}</td>
+            <td class="text-muted fw-bold">${formatter.format(row.bal)}</td>
+        </tr>
+    `).join('');
+}
+</script>
+</body>
+</html>
